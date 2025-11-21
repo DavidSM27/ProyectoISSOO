@@ -11,7 +11,7 @@
 #define BITS_ETQ 5
 #define ETQ_INICIAL 0xFF
 #define DATA_INICIAL 0x23
-#define RAM_FILE "CONTENTS_RAM.txt"
+#define RAM_FILE "CONTENTS_RAM.bin"
 #define ADDR_FILE "accesos_memoria.txt"
 #define CACHE_OUT_FILE "CONTENTS_CACHE.bin"
 
@@ -25,6 +25,7 @@ typedef struct {
 unsigned int globalTime = 0;
 unsigned int numFallos = 0;
 unsigned int numAccesos = 0;
+unsigned char simulRam[TAM_RAM];
 
 void LimpiarCACHE(T_CACHE_LINE tbl[NUM_FILAS]);
 void VolcarCACHE(T_CACHE_LINE *tbl);
@@ -33,16 +34,44 @@ void TratarFallo(T_CACHE_LINE *tbl, char *MRAM, int ETQ, int linea, int bloque);
 int leeLineaFichero(FILE *fd, char *cadena);
 
 int main(){
-	/*T_CACHE_LINE tbl[8];
-	FILE *fd = fopen(ADDR_FILE, "r");
+	T_CACHE_LINE tbl[8];
+	FILE *fdirs = fopen(ADDR_FILE, "r");
+	FILE *fbin = fopen(RAM_FILE, "rb");
 	
-	char linea[MAX_LINEA];
+	//comprobamos si se puede abrir el archivo
+	if(fdirs == NULL){
+		perror("Error al abrir el fichero");
+		fclose(fbin);
+		return(-1);
+	}
 	
-	while(leeLineaFichero(fd, linea)){
-		
-		printf("Linea leida: %s\n", linea);
-	}*/
-	 
+	char linea[256];
+	
+	while(fgets(linea, sizeof(linea), fdirs)){
+		printf("%s", linea);
+	}
+	
+	//comprobamos si podemos abrir el fichero binario
+	if(fbin == NULL){
+		perror("Error al abrir el fichero");
+		return(-1);
+	}
+	
+	//leemos el fichero usando fread
+	int leidos = fread(simulRam, 1, TAM_RAM, fbin);
+	
+	//Comprobamos si el tamaño del fichero es distinto al tamaño de la RAM 
+	if(leidos != TAM_RAM){
+		printf("Error de lectura");
+		fclose(fbin);
+		return(-1);
+	}
+	
+	//cerramos ficheros
+	fclose(fdirs);
+	fclose(fbin);
+	
+	return(0);
 }
 
 //Con esta funcion hemos sido capaces de establacer todos los valores a los que empezo por defecto cuando la llamamos
@@ -71,9 +100,9 @@ void VolcarCACHE(T_CACHE_LINE *tbl){
         printf("\n");
     }
     printf("\n");
-	}
-	
 }
+	
+
 
 //ParsearDireccion funcina cogiendo un numero hexadecimal de 12 bits y lo divide en las 3 partes que necesita la cache, palabra, linea y etiqueta
 void ParsearDireccion( unsigned int addr, int *ETQ, int *palabra, int *linea, int *bloque){
