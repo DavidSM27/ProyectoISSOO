@@ -37,7 +37,7 @@ int main(){
 	T_CACHE_LINE tbl[8];
 	FILE *fdirs = fopen(ADDR_FILE, "r");
 	FILE *fbin = fopen(RAM_FILE, "rb");
-	FILE *fsalida;
+	FILE *fcache_out;
 	int addr;
 	int etq;
 	int palabra;
@@ -57,15 +57,14 @@ int main(){
 	}
 
 	//leemos el fichero usando fread
-	unsigned char leidos = fread(simulRam, 1, TAM_RAM, fbin);
-	
+	size_t leidos = fread(simulRam, 1, TAM_RAM, fbin);
+
 	//Comprobamos si el tamaño del fichero es distinto al tamaño de la RAM 
 	if(leidos != TAM_RAM){
 		printf("Error de lectura");
 		fclose(fbin);
 		return(-1);
 	}
-	fclose(fbin);
 
 	//comprobamos si se puede abrir el archivo
 	if(fdirs == NULL){
@@ -73,8 +72,6 @@ int main(){
 		fclose(fbin);
 		return(-1);
 	}
-
-
 
 	while(fscanf(fdirs, "%x", &addr) == 1){
 		//Aumentamos el numero de accesos totales
@@ -92,7 +89,7 @@ int main(){
 			//Guardamos el dato leido para imprimirlo despues
 			datoLeido = tbl[linea].Data[palabra];
 
-			printf("T: %d, Acierto de CACHE, ADDR %04X Label %x linea %02X DATO %02X", globalTime, addr, etq, linea, texto);
+			printf("T: %d, Acierto de CACHE, ADDR %04X Label %x linea %02X DATO %02X", globalTime, addr, etq, linea, datoLeido);
 		}else{
 			
 			//Imprimimos el fallo
@@ -106,7 +103,33 @@ int main(){
 
 		}
 		
+		//añadimos el dato leido a texto si  es in caracter imprimible
+		 if (indiceTexto < 99) {
+            if (datoLeido >= 32 && datoLeido <= 126) {
+                texto[indiceTexto] = (char)datoLeido;
+                indiceTexto++;
+                texto[indiceTexto] = '\0'; 
+            }
+        }
+
+        // Volcamos a la cache y hacemos el sleep
+        VolcarCACHE(tbl);
+        sleep(1);
+		
 	}
+
+    // Mostramos las estadisticas
+    printf("\n--- Estadisticas ---\n");
+    float tiempo_medio;
+
+	if (numAccesos > 0) {
+		tiempo_medio = (float)globalTime / numAccesos;
+	} else {
+		tiempo_medio = 0.0;
+	}
+
+    printf("Accesos totales: %d; fallos: %d; Tiempo medio: %.2f\n", numAccesos, numFallos, tiempo_medio);
+    printf("Texto leído: %s\n", texto);
 	
 	//cerramos ficheros
 	fclose(fdirs);
@@ -164,6 +187,11 @@ void TratarFallo(T_CACHE_LINE *tbl, char *MRAM, int ETQ, int linea, int bloque){
     int j;
     int dir_inicial_ram;
 	
+	//Aumentamos el numero total de fallos
+	numFallos++;
+	//Aumentamos el tiempo total de acceso en 20
+	globalTime += 20;
+	
     printf("Cargando el bloque %02X en la linea %02X\n", bloque, linea);
 
 	//Sobreescribimos la antigua etiqueta por la nueva
@@ -177,9 +205,6 @@ void TratarFallo(T_CACHE_LINE *tbl, char *MRAM, int ETQ, int linea, int bloque){
         tbl[linea].Data[j] = MRAM[dir_inicial_ram + j];
     }
 
-	//Aumentamos el numero total de fallos
-	numFallos++;
-	//Aumentamos el tiempo total de acceso en 20
-	globalTime += 20;
+	
 
 }
