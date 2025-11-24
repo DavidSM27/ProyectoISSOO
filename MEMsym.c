@@ -22,10 +22,10 @@ typedef struct {
 	unsigned char Data[TAM_LINEA];
 } T_CACHE_LINE;
 
-unsigned int globalTime = 0;
-unsigned int numFallos = 0;
-unsigned int numAccesos = 0;
-unsigned char simulRam[TAM_RAM];
+int globalTime = 0;
+int numFallos = 0;
+int numAccesos = 0;
+char simulRam[TAM_RAM];
 
 void LimpiarCACHE(T_CACHE_LINE tbl[NUM_FILAS]);
 void VolcarCACHE(T_CACHE_LINE *tbl);
@@ -37,34 +37,75 @@ int main(){
 	T_CACHE_LINE tbl[8];
 	FILE *fdirs = fopen(ADDR_FILE, "r");
 	FILE *fbin = fopen(RAM_FILE, "rb");
-	
-	//comprobamos si se puede abrir el archivo
-	if(fdirs == NULL){
-		perror("Error al abrir el fichero");
-		fclose(fbin);
-		return(-1);
-	}
-	
-	char linea[256];
-	
-	while(fgets(linea, sizeof(linea), fdirs)){
-		printf("%s", linea);
-	}
-	
+	FILE *fsalida;
+	int addr;
+	int etq;
+	int palabra;
+	int linea;
+	int bloque;
+
+	char texto[100];
+	int indiceTexto = 0;
+	char datoLeido;
+
+	LimpiarCACHE(tbl);
+
 	//comprobamos si podemos abrir el fichero binario
 	if(fbin == NULL){
 		perror("Error al abrir el fichero");
 		return(-1);
 	}
-	
+
 	//leemos el fichero usando fread
-	int leidos = fread(simulRam, 1, TAM_RAM, fbin);
+	unsigned char leidos = fread(simulRam, 1, TAM_RAM, fbin);
 	
 	//Comprobamos si el tamaño del fichero es distinto al tamaño de la RAM 
 	if(leidos != TAM_RAM){
 		printf("Error de lectura");
 		fclose(fbin);
 		return(-1);
+	}
+	fclose(fbin);
+
+	//comprobamos si se puede abrir el archivo
+	if(fdirs == NULL){
+		perror("Error al abrir el fichero");
+		fclose(fbin);
+		return(-1);
+	}
+
+
+
+	while(fscanf(fdirs, "%x", &addr) == 1){
+		//Aumentamos el numero de accesos totales
+		numAccesos++;
+
+		//Llamada a la funcion parsear direccion
+		ParsearDireccion(addr, &etq, &palabra, &linea, &bloque);
+
+		//Entra en el if si la etiqueta cargada coincide con la de la RAM
+		if (tbl[linea].ETQ == etq)
+		{
+			//Aumentamos el tiempo de acceso total
+			globalTime += 1;
+
+			//Guardamos el dato leido para imprimirlo despues
+			datoLeido = tbl[linea].Data[palabra];
+
+			printf("T: %d, Acierto de CACHE, ADDR %04X Label %x linea %02X DATO %02X", globalTime, addr, etq, linea, texto);
+		}else{
+			
+			//Imprimimos el fallo
+			printf("T: %d, Fallo de CACHE %d, ADDR %04X Label %X linea %02X palabra %02X bloque %02X", globalTime, numFallos, addr, etq, linea, palabra, bloque);
+
+			//Llamamos a la funcion de tratarFallo
+			TratarFallo(tbl, simulRam, etq, linea, bloque);
+
+			//Guardamos el dato leido del fallo
+			datoLeido = tbl[linea].Data[palabra];
+
+		}
+		
 	}
 	
 	//cerramos ficheros
@@ -135,6 +176,10 @@ void TratarFallo(T_CACHE_LINE *tbl, char *MRAM, int ETQ, int linea, int bloque){
     for (j = 0; j < TAM_LINEA; j++) {
         tbl[linea].Data[j] = MRAM[dir_inicial_ram + j];
     }
-    
+
+	//Aumentamos el numero total de fallos
+	numFallos++;
+	//Aumentamos el tiempo total de acceso en 20
+	globalTime += 20;
 
 }
