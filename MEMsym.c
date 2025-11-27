@@ -48,6 +48,7 @@ int main(){
 	int indiceTexto = 0;
 	char datoLeido;
 
+	//Llamamos a la funcion de limpiar cache
 	LimpiarCACHE(tbl);
 
 	//comprobamos si podemos abrir el fichero binario
@@ -159,10 +160,6 @@ void LimpiarCACHE(T_CACHE_LINE tbl[NUM_FILAS]){
 
 //La funcion principal de esta funcion es la de mostrar los datos que tenemos en cache
 void VolcarCACHE(T_CACHE_LINE *tbl){
-	//Este primer bucle nos muestra las etiquetas en hexadecimal
-	 /*for (int i = 0; i < NUM_FILAS; i++) {
-        printf("%02X\n", tbl[i].ETQ);
-    }*/
     //El primer bucle solo imprime la palabra datos en cada linea
     for (int i = 0; i < NUM_FILAS; i++) {
         printf("%02X\t Datos: ", tbl[i].ETQ);
