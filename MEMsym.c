@@ -57,7 +57,7 @@ int main(){
 	}
 
 	//leemos el fichero usando fread
-	size_t leidos = fread(simulRam, 1, TAM_RAM, fbin);
+	int leidos = (int)fread(simulRam, 1, TAM_RAM, fbin);
 
 	//Comprobamos si el tamaño del fichero es distinto al tamaño de la RAM 
 	if(leidos != TAM_RAM){
@@ -80,28 +80,24 @@ int main(){
 		//Llamada a la funcion parsear direccion
 		ParsearDireccion(addr, &etq, &palabra, &linea, &bloque);
 
+		//Aumentamos el tiempo de acceso total
+		globalTime += 1;
+
 		//Entra en el if si la etiqueta cargada coincide con la de la RAM
-		if (tbl[linea].ETQ == etq)
-		{
-			//Aumentamos el tiempo de acceso total
-			globalTime += 1;
-
-			//Guardamos el dato leido para imprimirlo despues
-			datoLeido = tbl[linea].Data[palabra];
-
-			printf("T: %d, Acierto de CACHE, ADDR %04X Label %x linea %02X DATO %02X", globalTime, addr, etq, linea, datoLeido);
-		}else{
+		if (tbl[linea].ETQ != etq){
 			
 			//Imprimimos el fallo
-			printf("T: %d, Fallo de CACHE %d, ADDR %04X Label %X linea %02X palabra %02X bloque %02X", globalTime, numFallos, addr, etq, linea, palabra, bloque);
+			printf("T: %d, Fallo de CACHE %d, ADDR %04X Label %X linea %02X palabra %02X bloque %02X\n", globalTime, numFallos, addr, etq, linea, palabra, bloque);
 
 			//Llamamos a la funcion de tratarFallo
 			TratarFallo(tbl, simulRam, etq, linea, bloque);
 
-			//Guardamos el dato leido del fallo
-			datoLeido = tbl[linea].Data[palabra];
-
 		}
+		
+		//Guardamos el dato leido para imprimirlo despues
+		datoLeido = tbl[linea].Data[palabra];
+
+		printf("T: %d, Acierto de CACHE, ADDR %04X Label %x linea %02X DATO %02X\n", globalTime, addr, etq, linea, datoLeido);
 		
 		//añadimos el dato leido a texto si  es in caracter imprimible
 		 if (indiceTexto < 99) {
@@ -115,7 +111,6 @@ int main(){
         // Volcamos a la cache y hacemos el sleep
         VolcarCACHE(tbl);
         sleep(1);
-		
 	}
 
     // Mostramos las estadisticas
@@ -130,6 +125,20 @@ int main(){
 
     printf("Accesos totales: %d; fallos: %d; Tiempo medio: %.2f\n", numAccesos, numFallos, tiempo_medio);
     printf("Texto leído: %s\n", texto);
+
+    // Generamos el fichero binario de salida
+    fcache_out = fopen(CACHE_OUT_FILE, "wb");
+    if (fcache_out == NULL) {
+        perror("Error al crear fichero de salida de caché");
+        return -1;
+    }
+	
+	//Escribimos en dicho fichero los datos leidos
+    for (int i = 0; i < NUM_FILAS; i++) {
+        fwrite(tbl[i].Data, 1, TAM_LINEA, fcache_out);
+    }
+    fclose(fcache_out);
+    printf("Fichero %s generado correctamente.\n", CACHE_OUT_FILE);
 	
 	//cerramos ficheros
 	fclose(fdirs);
@@ -151,12 +160,12 @@ void LimpiarCACHE(T_CACHE_LINE tbl[NUM_FILAS]){
 //La funcion principal de esta funcion es la de mostrar los datos que tenemos en cache
 void VolcarCACHE(T_CACHE_LINE *tbl){
 	//Este primer bucle nos muestra las etiquetas en hexadecimal
-	 for (int i = 0; i < NUM_FILAS; i++) {
+	 /*for (int i = 0; i < NUM_FILAS; i++) {
         printf("%02X\n", tbl[i].ETQ);
-    }
+    }*/
     //El primer bucle solo imprime la palabra datos en cada linea
     for (int i = 0; i < NUM_FILAS; i++) {
-        printf("Datos:");
+        printf("%02X\t Datos: ", tbl[i].ETQ);
 		//Este segundo bucle anidado nos imprime los datos en formato hexadecimal
         for (int j = TAM_LINEA - 1; j >= 0; j--) {
             printf("%02X ", tbl[i].Data[j]);
@@ -174,7 +183,7 @@ void ParsearDireccion( unsigned int addr, int *ETQ, int *palabra, int *linea, in
 	
 	*linea = (addr & 0x70) >> 4;
 	
-	*ETQ = (addr & 0xF80) >> 7;
+	*ETQ = addr  >> 7;
 
 	//Lo que hace el bloque es elimar los ultimos 4 bits o la parte de la palabra para asi poder saber exactamente el numero de bloque para cuando hay un fallo
 	*bloque = addr >> 4;
@@ -204,7 +213,4 @@ void TratarFallo(T_CACHE_LINE *tbl, char *MRAM, int ETQ, int linea, int bloque){
     for (j = 0; j < TAM_LINEA; j++) {
         tbl[linea].Data[j] = MRAM[dir_inicial_ram + j];
     }
-
-	
-
 }
