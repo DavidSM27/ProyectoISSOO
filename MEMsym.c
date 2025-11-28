@@ -15,7 +15,6 @@
 #define ADDR_FILE "accesos_memoria.txt"
 #define CACHE_OUT_FILE "CONTENTS_CACHE.bin"
 
-#define MAX_LINEA 256
 
 typedef struct {
 	unsigned char ETQ;
@@ -31,10 +30,9 @@ void LimpiarCACHE(T_CACHE_LINE tbl[NUM_FILAS]);
 void VolcarCACHE(T_CACHE_LINE *tbl);
 void ParsearDireccion( unsigned int addr, int *ETQ, int *palabra, int *linea, int *bloque);
 void TratarFallo(T_CACHE_LINE *tbl, char *MRAM, int ETQ, int linea, int bloque);
-int leeLineaFichero(FILE *fd, char *cadena);
 
 int main(){
-	T_CACHE_LINE tbl[8];
+	T_CACHE_LINE tbl[NUM_FILAS];
 	FILE *fdirs = fopen(ADDR_FILE, "r");
 	FILE *fbin = fopen(RAM_FILE, "rb");
 	FILE *fcache_out;
@@ -48,7 +46,7 @@ int main(){
 	int indiceTexto = 0;
 	char datoLeido;
 
-	//Llamamos a la funcion de limpiar cache
+	//Llamamos a limpiar cache para establecer los valores por defetecto
 	LimpiarCACHE(tbl);
 
 	//comprobamos si podemos abrir el fichero binario
@@ -84,8 +82,11 @@ int main(){
 		//Aumentamos el tiempo de acceso total
 		globalTime += 1;
 
-		//Entra en el if si la etiqueta cargada coincide con la de la RAM
+		//Entra en el if si la etiqueta cargada no coincide con la de la RAM
 		if (tbl[linea].ETQ != etq){
+			
+			//incrementamos el contador de fallos
+			numFallos++;
 			
 			//Imprimimos el fallo
 			printf("T: %d, Fallo de CACHE %d, ADDR %04X Label %X linea %02X palabra %02X bloque %02X\n", globalTime, numFallos, addr, etq, linea, palabra, bloque);
@@ -100,7 +101,7 @@ int main(){
 
 		printf("T: %d, Acierto de CACHE, ADDR %04X Label %x linea %02X DATO %02X\n", globalTime, addr, etq, linea, datoLeido);
 		
-		//añadimos el dato leido a texto si  es in caracter imprimible
+		//Añadimos el dato leido a texto si es un caracter imprimible
 		 if (indiceTexto < 99) {
             if (datoLeido >= 32 && datoLeido <= 126) {
                 texto[indiceTexto] = (char)datoLeido;
@@ -118,6 +119,7 @@ int main(){
     printf("\n--- Estadisticas ---\n");
     float tiempo_medio;
 
+	//Calculamos el tiempo medio
 	if (numAccesos > 0) {
 		tiempo_medio = (float)globalTime / numAccesos;
 	} else {
@@ -138,12 +140,13 @@ int main(){
     for (int i = 0; i < NUM_FILAS; i++) {
         fwrite(tbl[i].Data, 1, TAM_LINEA, fcache_out);
     }
-    fclose(fcache_out);
+   
     printf("Fichero %s generado correctamente.\n", CACHE_OUT_FILE);
 	
 	//cerramos ficheros
 	fclose(fdirs);
 	fclose(fbin);
+	fclose(fcache_out);
 	
 	return(0);
 }
@@ -189,12 +192,9 @@ void ParsearDireccion( unsigned int addr, int *ETQ, int *palabra, int *linea, in
 
 //Esta funcion se ejecuta cuando la CPU pide un dato que no esta en cache y por tanto hay que ir a buscarlo a la RAM
 void TratarFallo(T_CACHE_LINE *tbl, char *MRAM, int ETQ, int linea, int bloque){
-
     int j;
     int dir_inicial_ram;
 	
-	//Aumentamos el numero total de fallos
-	numFallos++;
 	//Aumentamos el tiempo total de acceso en 20
 	globalTime += 20;
 	
